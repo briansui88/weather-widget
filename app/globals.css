@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0f0f0f;
+  --foreground: #ededed;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Animated background keyframes ── */
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.95; }
+}
+
+@keyframes moon-pulse {
+  0%, 100% { opacity: 0.88; }
+  50% { opacity: 1; }
+}
+
+@keyframes sun-pulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes sun-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cloud-drift {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(14px); }
+}
+
+@keyframes cloud-drift-slow {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(22px); }
+}
+
+@keyframes rain-scroll {
+  from { transform: translate(0, -35px); }
+  to { transform: translate(-20px, 0px); }
+}
+
+@keyframes snow-scroll {
+  from { transform: translateY(-480px); }
+  to { transform: translateY(0px); }
+}
+
+@keyframes lightning-flash {
+  0%, 100% { opacity: 0; }
+  4% { opacity: 0.9; }
+  8% { opacity: 0.05; }
+  12% { opacity: 0.75; }
+  16% { opacity: 0; }
+}
+
+@keyframes fog-drift {
+  0%, 100% { opacity: 0.28; transform: translateX(0); }
+  50% { opacity: 0.45; transform: translateX(18px); }
+}
+
+/* Grain texture overlay */
+.widget-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+  opacity: 0.13;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 10;
+  border-radius: inherit;
 }
