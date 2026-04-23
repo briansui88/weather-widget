@@ -2,44 +2,53 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import AnimatedBackground from './AnimatedBackground'
+import AlertBanner from './AlertBanner'
 import { fetchWeather, type WeatherData } from '../lib/weather'
+import { fetchAlerts, type AlertData } from '../lib/alerts'
 import { getOutfit } from '../lib/outfit'
 
 const CITIES = [
-  { name: 'New York',   country: 'USA',       lat: 40.7128,  lon: -74.0060,  tz: 'America/New_York' },
-  { name: 'London',     country: 'UK',        lat: 51.5074,  lon: -0.1278,   tz: 'Europe/London' },
-  { name: 'Tokyo',      country: 'Japan',     lat: 35.6762,  lon: 139.6503,  tz: 'Asia/Tokyo' },
-  { name: 'Sydney',     country: 'Australia', lat: -33.8688, lon: 151.2093,  tz: 'Australia/Sydney' },
-  { name: 'Dubai',      country: 'UAE',       lat: 25.2048,  lon: 55.2708,   tz: 'Asia/Dubai' },
-  { name: 'São Paulo',  country: 'Brazil',    lat: -23.5505, lon: -46.6333,  tz: 'America/Sao_Paulo' },
-  { name: 'Lagos',      country: 'Nigeria',   lat: 6.5244,   lon: 3.3792,    tz: 'Africa/Lagos' },
-  { name: 'Paris',      country: 'France',    lat: 48.8566,  lon: 2.3522,    tz: 'Europe/Paris' },
+  { name: 'New York',  country: 'USA',       lat: 40.7128,  lon: -74.0060,  tz: 'America/New_York',   isUS: true },
+  { name: 'London',    country: 'UK',        lat: 51.5074,  lon: -0.1278,   tz: 'Europe/London',      isUS: false },
+  { name: 'Tokyo',     country: 'Japan',     lat: 35.6762,  lon: 139.6503,  tz: 'Asia/Tokyo',         isUS: false },
+  { name: 'Sydney',    country: 'Australia', lat: -33.8688, lon: 151.2093,  tz: 'Australia/Sydney',   isUS: false },
+  { name: 'Dubai',     country: 'UAE',       lat: 25.2048,  lon: 55.2708,   tz: 'Asia/Dubai',         isUS: false },
+  { name: 'São Paulo', country: 'Brazil',    lat: -23.5505, lon: -46.6333,  tz: 'America/Sao_Paulo',  isUS: false },
+  { name: 'Lagos',     country: 'Nigeria',   lat: 6.5244,   lon: 3.3792,    tz: 'Africa/Lagos',       isUS: false },
+  { name: 'Paris',     country: 'France',    lat: 48.8566,  lon: 2.3522,    tz: 'Europe/Paris',       isUS: false },
 ]
 
 function formatLocalTime(tz: string): { day: string; time: string } {
   const now = new Date()
-  const day = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz }).format(now)
-  const time = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz,
-  }).format(now)
+  const day  = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz }).format(now)
+  const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz }).format(now)
   return { day, time }
 }
 
 export default function WeatherWidget() {
-  const [cityIdx, setCityIdx] = useState(0)
-  const [weather, setWeather] = useState<WeatherData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [localTime, setLocalTime] = useState({ day: 'Today', time: '' })
+  const [cityIdx,    setCityIdx]    = useState(0)
+  const [weather,    setWeather]    = useState<WeatherData | null>(null)
+  const [alert,      setAlert]      = useState<AlertData | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(false)
+  const [localTime,  setLocalTime]  = useState({ day: 'Today', time: '' })
+  const [alertKey,   setAlertKey]   = useState(0) // forces re-animation on city change
 
   const city = CITIES[cityIdx]
 
-  const loadWeather = useCallback(async (idx: number) => {
+  const load = useCallback(async (idx: number) => {
     setLoading(true)
     setError(false)
+    setAlert(null)
+    const c = CITIES[idx]
     try {
-      const data = await fetchWeather(CITIES[idx].lat, CITIES[idx].lon)
-      setWeather(data)
+      const [w, a] = await Promise.all([
+        fetchWeather(c.lat, c.lon),
+        fetchAlerts(c.lat, c.lon, c.isUS),
+      ])
+      setWeather(w)
+      setAlert(a)
+      setAlertKey(k => k + 1)
     } catch {
       setError(true)
     } finally {
@@ -47,7 +56,7 @@ export default function WeatherWidget() {
     }
   }, [])
 
-  useEffect(() => { loadWeather(cityIdx) }, [cityIdx, loadWeather])
+  useEffect(() => { load(cityIdx) }, [cityIdx, load])
 
   useEffect(() => {
     const tick = () => setLocalTime(formatLocalTime(city.tz))
@@ -63,19 +72,16 @@ export default function WeatherWidget() {
     ? { condition: weather.condition, isDay: weather.isDay }
     : { condition: 'clear' as const, isDay: new Date().getHours() > 6 && new Date().getHours() < 20 }
 
-  const outfit = weather && !loading
-    ? getOutfit(weather.temp, weather.condition, weather.windSpeed)
-    : null
+  const outfit = weather && !loading ? getOutfit(weather.temp, weather.condition, weather.windSpeed) : null
 
   return (
     <div className="relative w-[380px] h-[470px] rounded-3xl overflow-hidden shadow-2xl widget-grain select-none">
-      {/* Animated background */}
       <AnimatedBackground condition={bg.condition} isDay={bg.isDay} />
 
       {/* Content overlay */}
       <div className="absolute inset-0 z-10 flex flex-col justify-between p-6">
 
-        {/* Top row: day/time + temperature */}
+        {/* Top: day/time + temperature */}
         <div className="flex justify-between items-start">
           <div>
             <div className="text-white font-semibold text-base leading-tight drop-shadow">
@@ -91,9 +97,8 @@ export default function WeatherWidget() {
           </div>
         </div>
 
-        {/* Bottom section: outfit + city nav */}
-        <div>
-          {/* Outfit recommendation */}
+        {/* Bottom: outfit + city nav */}
+        <div className={alert ? 'mb-16' : ''}>
           <div className="mb-3 min-h-[28px]">
             {outfit && (
               <span className="inline-block bg-black/30 backdrop-blur-sm text-white/90 text-xs font-medium px-3 py-1.5 rounded-full tracking-wide">
@@ -112,51 +117,37 @@ export default function WeatherWidget() {
             )}
           </div>
 
-          {/* City navigation */}
           <div className="flex items-end gap-2">
-            <button
-              onClick={prev}
+            <button onClick={prev}
               className="text-white/50 hover:text-white transition-colors text-3xl font-light leading-none pb-1"
-              aria-label="Previous city"
-            >
-              ‹
-            </button>
+              aria-label="Previous city">‹</button>
             <div className="flex-1">
-              <div className="text-white font-bold leading-tight drop-shadow"
-                style={{ fontSize: '26px' }}>
+              <div className="text-white font-bold leading-tight drop-shadow" style={{ fontSize: '26px' }}>
                 {city.name}
               </div>
-              <div className="text-white font-bold leading-tight drop-shadow"
-                style={{ fontSize: '20px' }}>
+              <div className="text-white font-bold leading-tight drop-shadow" style={{ fontSize: '20px' }}>
                 {city.country}
               </div>
             </div>
-            <button
-              onClick={next}
+            <button onClick={next}
               className="text-white/50 hover:text-white transition-colors text-3xl font-light leading-none pb-1"
-              aria-label="Next city"
-            >
-              ›
-            </button>
+              aria-label="Next city">›</button>
           </div>
 
-          {/* City dots */}
           <div className="flex gap-1.5 mt-2.5 pl-7">
             {CITIES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCityIdx(i)}
+              <button key={i} onClick={() => setCityIdx(i)}
                 className={`rounded-full transition-all ${
-                  i === cityIdx
-                    ? 'bg-white w-4 h-1.5'
-                    : 'bg-white/35 hover:bg-white/55 w-1.5 h-1.5'
+                  i === cityIdx ? 'bg-white w-4 h-1.5' : 'bg-white/35 hover:bg-white/55 w-1.5 h-1.5'
                 }`}
-                aria-label={CITIES[i].name}
-              />
+                aria-label={CITIES[i].name} />
             ))}
           </div>
         </div>
       </div>
+
+      {/* Alert banner — slides up from bottom when active */}
+      {alert && <AlertBanner key={alertKey} alert={alert} />}
     </div>
   )
 }
